@@ -122,6 +122,27 @@ export default function App() {
       Alert.alert("Таймер запущено", "Таймер працює, але не вдалося запланувати push-сповіщення.");
     }
   };
+  const clearAllLocalData = () => {
+    Alert.alert(
+      "Видалити всі дані PARKGUARD?",
+      "Буде видалено фото знака, координати, історію, чекліст і таймер із цього пристрою.",
+      [
+        { text: "Скасувати", style: "cancel" },
+        {
+          text: "Видалити все",
+          style: "destructive",
+          onPress: async () => {
+            try { await Notifications.cancelAllScheduledNotificationsAsync(); } catch {}
+            setSession({});
+            setRemaining(0);
+            try { await AsyncStorage.setItem(STORAGE_KEY, "{}"); }
+            catch { Alert.alert("Не вдалося очистити дані", "Спробуйте ще раз."); }
+          }
+        }
+      ]
+    );
+  };
+
   const verdict = getParkingVerdict(!!session.photoUri);
   const time = String(Math.floor(remaining / 60000)).padStart(2, "0") + ":" + String(Math.floor((remaining % 60000) / 1000)).padStart(2, "0");
 
@@ -199,7 +220,8 @@ export default function App() {
           <View style={styles.buttons}>{[30, 60, 120].map(minutes => <TouchableOpacity accessibilityRole="button" key={minutes} style={styles.chip} onPress={() => startTimer(minutes)}><Text style={styles.chipText}>{minutes} хв</Text></TouchableOpacity>)}</View>
           <TouchableOpacity accessibilityRole="button" style={styles.clear} onPress={async () => { try { await Notifications.cancelAllScheduledNotificationsAsync(); } catch {} setSession(s => ({ ...s, expiresAt: undefined })); }}><Text style={styles.muted}>Скинути таймер</Text></TouchableOpacity>
         </View>
-        <Text style={styles.footer}>MVP 0.2 · Дані зберігаються локально</Text>
+        <TouchableOpacity accessibilityRole="button" style={styles.clear} onPress={clearAllLocalData}><Text style={[styles.muted, { color: "#D98A8A" }]}>Видалити всі локальні дані</Text></TouchableOpacity>
+        <Text style={styles.footer}>MVP 0.3 · Дані зберігаються локально</Text>
         <Text style={styles.disclaimer}>PARKGUARD поки не розпізнає знаки автоматично та не гарантує відсутність штрафу. Завжди перевіряй офіційні знаки й правила дорожнього руху.</Text>
       </ScrollView>
     </SafeAreaView>
