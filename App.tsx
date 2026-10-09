@@ -99,13 +99,14 @@ export default function App() {
 
   const startTimer = async (minutes: number) => {
     try {
+      // Remove any older reminder first, even if the user has since revoked notification permission.
+      try { await Notifications.cancelAllScheduledNotificationsAsync(); } catch {}
       const permission = await Notifications.requestPermissionsAsync();
       if (permission.status !== "granted") {
-        Alert.alert("Нагадування вимкнені", "Дозволь сповіщення, щоб отримати нагадування про завершення часу.");
         setSession(s => ({ ...s, expiresAt: Date.now() + minutes * 60000 }));
+        Alert.alert("Нагадування вимкнені", "Таймер запущено без системного сповіщення. Увімкни сповіщення в налаштуваннях, щоб отримувати нагадування.");
         return;
       }
-      await Notifications.cancelAllScheduledNotificationsAsync();
       await Notifications.scheduleNotificationAsync({
         content: {
           title: "PARKGUARD · Час перевірити авто",
