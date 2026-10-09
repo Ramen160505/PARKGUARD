@@ -11,20 +11,29 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "PARKGUARD використовує геолокацію, щоб зберегти місце паркування."
+        "NSLocationWhenInUseUsageDescription": "PARKGUARD використовує геолокацію, щоб зберегти місце паркування.",
+        "NSCameraUsageDescription": "PARKGUARD використовує камеру, щоб сфотографувати дорожній знак перед паркуванням."
       }
     },
     "android": {
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "CAMERA"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#0B0D12"
       }
     },
     "plugins": [
-      "expo-image-picker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "PARKGUARD використовує фото, щоб допомогти перевірити дорожній знак.",
+          "cameraPermission": "PARKGUARD використовує камеру, щоб сфотографувати дорожній знак.",
+          "microphonePermission": false
+        }
+      ],
       "expo-location"
     ]
   }
