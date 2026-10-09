@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "PARKGUARD",
+    "slug": "parkguard",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0B0D12"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "PARKGUARD використовує геолокацію, щоб зберегти місце паркування."
+      }
+    },
+    "android": {
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0D12"
+      }
+    },
+    "plugins": [
+      "expo-image-picker",
+      "expo-location"
+    ]
+  }
+}
