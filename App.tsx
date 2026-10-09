@@ -9,7 +9,14 @@ import { getParkingVerdict, getRemainingMs } from "./src/parkingRules";
 
 const STORAGE_KEY = "parkguard.session.v1";
 type ParkingRecord = { latitude: number; longitude: number; savedAt: number };
-type Session = { photoUri?: string; latitude?: number; longitude?: number; expiresAt?: number; history?: ParkingRecord[] };
+type Session = { photoUri?: string; latitude?: number; longitude?: number; expiresAt?: number; history?: ParkingRecord[]; checks?: Record<string, boolean> };
+const PARKING_CHECKS = [
+  { id: "signs", label: "Перевірив усі дорожні знаки поруч" },
+  { id: "markings", label: "Перевірив дорожню розмітку" },
+  { id: "crossing", label: "Не перекриваю пішохідний перехід або велодоріжку" },
+  { id: "access", label: "Не перекриваю в’їзд, виїзд чи доступ спецслужб" },
+  { id: "local", label: "Перевірив місцеві обмеження та спосіб оплати" }
+];
 
 export default function App() {
   const [session, setSession] = useState<Session>({});
@@ -155,7 +162,21 @@ export default function App() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>03 / Історія місць</Text>
+          <Text style={styles.cardTitle}>03 / Чекліст перед виходом</Text>
+          <Text style={styles.body}>Познач перевірені пункти. Це нагадування, а не юридичне підтвердження дозволу на паркування.</Text>
+          {PARKING_CHECKS.map(item => {
+            const checked = !!session.checks?.[item.id];
+            return <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked }} key={item.id} style={styles.checkItem} onPress={() => setSession(s => ({ ...s, checks: { ...(s.checks ?? {}), [item.id]: !s.checks?.[item.id] } }))}>
+              <View style={[styles.checkBox, checked && styles.checkBoxChecked]}><Text style={styles.checkMark}>{checked ? "✓" : ""}</Text></View>
+              <Text style={[styles.checkLabel, checked && styles.checkLabelChecked]}>{item.label}</Text>
+            </TouchableOpacity>;
+          })}
+          <Text style={styles.checkSummary}>Перевірено {PARKING_CHECKS.filter(item => session.checks?.[item.id]).length} з {PARKING_CHECKS.length}</Text>
+          <TouchableOpacity accessibilityRole="button" style={styles.clear} onPress={() => setSession(s => ({ ...s, checks: {} }))}><Text style={styles.muted}>Скинути чекліст</Text></TouchableOpacity>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>04 / Історія місць</Text>
           <Text style={styles.body}>Останні збережені місця зберігаються локально на цьому пристрої.</Text>
           {(session.history ?? []).length === 0 ? <Text style={[styles.body, { marginTop: 12 }]}>Поки немає збережених місць. Натисни «Зберегти моє місце», щоб додати перший запис.</Text> : (session.history ?? []).map((record, index) => (
             <TouchableOpacity accessibilityRole="button" key={record.savedAt + "-" + index} style={styles.historyItem} onPress={() => Linking.openURL("https://maps.google.com/?q=" + record.latitude + "," + record.longitude).catch(() => Alert.alert("Не вдалося відкрити карту", "Спробуйте ще раз."))}>
@@ -171,7 +192,7 @@ export default function App() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>04 / Паркувальний таймер</Text>
+          <Text style={styles.cardTitle}>05 / Паркувальний таймер</Text>
           <Text accessibilityLabel="Залишок часу" style={styles.timer}>{session.expiresAt ? time : "--:--"}</Text>
           <Text style={styles.body}>{session.expiresAt && remaining === 0 ? "Час завершився. Перевір автомобіль." : "Обери тривалість нагадування. Якщо дозволити сповіщення, застосунок нагадає про завершення таймера навіть коли він не відкритий."}</Text>
           <View style={styles.buttons}>{[30, 60, 120].map(minutes => <TouchableOpacity accessibilityRole="button" key={minutes} style={styles.chip} onPress={() => startTimer(minutes)}><Text style={styles.chipText}>{minutes} хв</Text></TouchableOpacity>)}</View>
@@ -204,6 +225,13 @@ const styles = StyleSheet.create({
   timer: { fontSize: 42, fontWeight: "800", color: "#72A7FF", marginVertical: 4, fontVariant: ["tabular-nums"] },
   buttons: { flexDirection: "row", gap: 8, marginTop: 2 },
   chip: { flex: 1, backgroundColor: "#252C38", borderRadius: 12, padding: 13, alignItems: "center" },
+  checkItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 11, borderTopWidth: 1, borderTopColor: "#252C38" },
+  checkBox: { width: 24, height: 24, borderRadius: 7, borderWidth: 1, borderColor: "#586477", alignItems: "center", justifyContent: "center" },
+  checkBoxChecked: { backgroundColor: "#72A7FF", borderColor: "#72A7FF" },
+  checkMark: { color: "#0B0D12", fontWeight: "900" },
+  checkLabel: { flex: 1, color: "#D8DEE8", fontSize: 14, lineHeight: 20 },
+  checkLabelChecked: { color: "#7D8798" },
+  checkSummary: { color: "#72A7FF", fontSize: 12, fontWeight: "700", marginTop: 8 },
   historyItem: { flexDirection: "row", alignItems: "center", gap: 10, borderTopWidth: 1, borderTopColor: "#252C38", paddingVertical: 12 },
   historyDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: "#252C38", alignItems: "center", justifyContent: "center" },
   historyDotText: { color: "#72A7FF", fontWeight: "800", fontSize: 12 },
