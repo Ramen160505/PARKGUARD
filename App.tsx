@@ -3,6 +3,7 @@ import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, Vi
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
 import { getParkingVerdict, getRemainingMs } from "./src/parkingRules";
 
@@ -15,6 +16,17 @@ export default function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false
+      })
+    });
+    Notifications.getPermissionsAsync().then(({ status }) => {
+      if (status !== "granted") return;
+    }).catch(() => {});
     AsyncStorage.getItem(STORAGE_KEY)
       .then(value => { if (value) setSession(JSON.parse(value)); })
       .catch(() => Alert.alert("Не вдалося завантажити дані", "Попередній сеанс може бути недоступний."))
@@ -77,7 +89,30 @@ export default function App() {
     catch { Alert.alert("Не вдалося відкрити карту", "Спробуйте скопіювати координати вручну."); }
   };
 
-  const startTimer = (minutes: number) => setSession(s => ({ ...s, expiresAt: Date.now() + minutes * 60000 }));
+  const startTimer = async (minutes: number) => {
+    try {
+      const permission = await Notifications.requestPermissionsAsync();
+      if (permission.status !== "granted") {
+        Alert.alert("Нагадування вимкнені", "Дозволь сповіщення, щоб отримати нагадування про завершення часу.");
+        setSession(s => ({ ...s, expiresAt: Date.now() + minutes * 60000 }));
+        return;
+      }
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "PARKGUARD · Час перевірити авто",
+          body: "Твій паркувальний таймер завершився. Перевір автомобіль і місцеві обмеження.",
+          sound: true
+        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: minutes * 60 }
+      });
+      setSession(s => ({ ...s, expiresAt: Date.now() + minutes * 60000 }));
+      Alert.alert("Нагадування встановлено", `PARKGUARD нагадає через ${minutes} хвилин, якщо сповіщення дозволені системою.`);
+    } catch {
+      setSession(s => ({ ...s, expiresAt: Date.now() + minutes * 60000 }));
+      Alert.alert("Таймер запущено", "Таймер працює, але не вдалося запланувати push-сповіщення.");
+    }
+  };
   const verdict = getParkingVerdict(!!session.photoUri);
   const time = String(Math.floor(remaining / 60000)).padStart(2, "0") + ":" + String(Math.floor((remaining % 60000) / 1000)).padStart(2, "0");
 
@@ -121,9 +156,9 @@ export default function App() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>03 / Паркувальний таймер</Text>
           <Text accessibilityLabel="Залишок часу" style={styles.timer}>{session.expiresAt ? time : "--:--"}</Text>
-          <Text style={styles.body}>{session.expiresAt && remaining === 0 ? "Час завершився. Перевір автомобіль." : "Обери тривалість нагадування. Таймер працює, поки застосунок не відкритий, але push-сповіщення ще не підключені."}</Text>
+          <Text style={styles.body}>{session.expiresAt && remaining === 0 ? "Час завершився. Перевір автомобіль." : "Обери тривалість нагадування. Якщо дозволити сповіщення, застосунок нагадає про завершення таймера навіть коли він не відкритий."}</Text>
           <View style={styles.buttons}>{[30, 60, 120].map(minutes => <TouchableOpacity accessibilityRole="button" key={minutes} style={styles.chip} onPress={() => startTimer(minutes)}><Text style={styles.chipText}>{minutes} хв</Text></TouchableOpacity>)}</View>
-          <TouchableOpacity accessibilityRole="button" style={styles.clear} onPress={() => setSession(s => ({ ...s, expiresAt: undefined }))}><Text style={styles.muted}>Скинути таймер</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" style={styles.clear} onPress={async () => { try { await Notifications.cancelAllScheduledNotificationsAsync(); } catch {} setSession(s => ({ ...s, expiresAt: undefined })); }}><Text style={styles.muted}>Скинути таймер</Text></TouchableOpacity>
         </View>
         <Text style={styles.footer}>MVP 0.2 · Дані зберігаються локально</Text>
         <Text style={styles.disclaimer}>PARKGUARD поки не розпізнає знаки автоматично та не гарантує відсутність штрафу. Завжди перевіряй офіційні знаки й правила дорожнього руху.</Text>
