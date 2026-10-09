@@ -8,7 +8,8 @@ import { StatusBar } from "expo-status-bar";
 import { getParkingVerdict, getRemainingMs } from "./src/parkingRules";
 
 const STORAGE_KEY = "parkguard.session.v1";
-type Session = { photoUri?: string; latitude?: number; longitude?: number; expiresAt?: number };
+type ParkingRecord = { latitude: number; longitude: number; savedAt: number };
+type Session = { photoUri?: string; latitude?: number; longitude?: number; expiresAt?: number; history?: ParkingRecord[] };
 
 export default function App() {
   const [session, setSession] = useState<Session>({});
@@ -75,7 +76,7 @@ export default function App() {
     }
     try {
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setSession(s => ({ ...s, latitude: position.coords.latitude, longitude: position.coords.longitude }));
+      setSession(s => ({ ...s, latitude: position.coords.latitude, longitude: position.coords.longitude, history: [{ latitude: position.coords.latitude, longitude: position.coords.longitude, savedAt: Date.now() }, ...(s.history ?? [])].slice(0, 10) }));
       Alert.alert("Місце збережено", "Координати збережені на цьому пристрої.");
     } catch {
       Alert.alert("Не вдалося визначити місце", "Перевірте GPS і спробуйте ще раз надворі.");
@@ -154,7 +155,23 @@ export default function App() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>03 / Паркувальний таймер</Text>
+          <Text style={styles.cardTitle}>03 / Історія місць</Text>
+          <Text style={styles.body}>Останні збережені місця зберігаються локально на цьому пристрої.</Text>
+          {(session.history ?? []).length === 0 ? <Text style={[styles.body, { marginTop: 12 }]}>Поки немає збережених місць. Натисни «Зберегти моє місце», щоб додати перший запис.</Text> : (session.history ?? []).map((record, index) => (
+            <TouchableOpacity accessibilityRole="button" key={record.savedAt + "-" + index} style={styles.historyItem} onPress={() => Linking.openURL("https://maps.google.com/?q=" + record.latitude + "," + record.longitude).catch(() => Alert.alert("Не вдалося відкрити карту", "Спробуйте ще раз."))}>
+              <View style={styles.historyDot}><Text style={styles.historyDotText}>{index + 1}</Text></View>
+              <View style={styles.historyText}>
+                <Text style={styles.historyTitle}>{new Date(record.savedAt).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</Text>
+                <Text style={styles.body}>{record.latitude.toFixed(5)}, {record.longitude.toFixed(5)}</Text>
+              </View>
+              <Text style={styles.historyLink}>Карта ↗</Text>
+            </TouchableOpacity>
+          ))}
+          {(session.history ?? []).length > 0 ? <TouchableOpacity accessibilityRole="button" style={styles.clear} onPress={() => Alert.alert("Очистити історію?", "Цю дію не можна скасувати.", [{ text: "Скасувати", style: "cancel" }, { text: "Очистити", style: "destructive", onPress: () => setSession(s => ({ ...s, history: [] })) }])}><Text style={styles.muted}>Очистити історію</Text></TouchableOpacity> : null}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>04 / Паркувальний таймер</Text>
           <Text accessibilityLabel="Залишок часу" style={styles.timer}>{session.expiresAt ? time : "--:--"}</Text>
           <Text style={styles.body}>{session.expiresAt && remaining === 0 ? "Час завершився. Перевір автомобіль." : "Обери тривалість нагадування. Якщо дозволити сповіщення, застосунок нагадає про завершення таймера навіть коли він не відкритий."}</Text>
           <View style={styles.buttons}>{[30, 60, 120].map(minutes => <TouchableOpacity accessibilityRole="button" key={minutes} style={styles.chip} onPress={() => startTimer(minutes)}><Text style={styles.chipText}>{minutes} хв</Text></TouchableOpacity>)}</View>
@@ -187,6 +204,12 @@ const styles = StyleSheet.create({
   timer: { fontSize: 42, fontWeight: "800", color: "#72A7FF", marginVertical: 4, fontVariant: ["tabular-nums"] },
   buttons: { flexDirection: "row", gap: 8, marginTop: 2 },
   chip: { flex: 1, backgroundColor: "#252C38", borderRadius: 12, padding: 13, alignItems: "center" },
+  historyItem: { flexDirection: "row", alignItems: "center", gap: 10, borderTopWidth: 1, borderTopColor: "#252C38", paddingVertical: 12 },
+  historyDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: "#252C38", alignItems: "center", justifyContent: "center" },
+  historyDotText: { color: "#72A7FF", fontWeight: "800", fontSize: 12 },
+  historyText: { flex: 1, gap: 3 },
+  historyTitle: { color: "#F5F7FA", fontWeight: "700", fontSize: 13 },
+  historyLink: { color: "#72A7FF", fontSize: 12, fontWeight: "700" },
   chipText: { color: "#F5F7FA", fontWeight: "700" },
   clear: { alignSelf: "center", padding: 12, marginTop: 4 },
   muted: { color: "#7D8798" },
